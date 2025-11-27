@@ -4,15 +4,38 @@ import itmo.infosystems.grimoire.models.Wizard
 import itmo.infosystems.grimoire.repositories.GuildRepository
 import itmo.infosystems.grimoire.repositories.WizardRepository
 import jakarta.persistence.EntityNotFoundException
+import org.springframework.security.core.authority.SimpleGrantedAuthority
+import org.springframework.security.core.userdetails.UserDetails
+import org.springframework.security.core.userdetails.UserDetailsService
+import org.springframework.security.core.userdetails.UsernameNotFoundException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class WizardService(private val wizardRepository: WizardRepository, private val guildRepository: GuildRepository) {
+class WizardService(
+    private val wizardRepository: WizardRepository,
+    private val guildRepository: GuildRepository
+) : UserDetailsService {
+
+    override fun loadUserByUsername(username: String): UserDetails {
+        val wizard = wizardRepository.findByLogin(username)
+            ?: throw UsernameNotFoundException("Wizard not found with login: $username")
+
+        return org.springframework.security.core.userdetails.User(
+            wizard.login,
+            wizard.password,
+            listOf(SimpleGrantedAuthority("ROLE_USER"))
+        )
+    }
 
     fun getWizard(id: Long): Wizard {
         return wizardRepository.findById(id)
             .orElseThrow { EntityNotFoundException("Wizard with id $id not found") }
+    }
+
+    fun getWizardByLogin(login: String): Wizard {
+        return wizardRepository.findByLogin(login)
+            ?: throw EntityNotFoundException("Wizard not found with login $login")
     }
 
     @Transactional
