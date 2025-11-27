@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Наложение заклинания</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Alfa+Slab+One&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<nav>
+    <a href="/dashboard.html"><i class="fas fa-book"></i> Кабинет</a>
+    <a href="/spells.html"><i class="fas fa-magic"></i> Заклинания</a>
+    <a href="/artifacts.html"><i class="fas fa-crown"></i> Артефакты</a>
+    <a href="/history.html"><i class="fas fa-scroll"></i> История</a>
+    <a href="#" onclick="logout(); return false;"><i class="fas fa-door-open"></i> Выйти</a>
+</nav>
+
+<div class="magic-header">
+    <h2><i class="fas fa-wand-magic"></i> Наложение заклинания</h2>
+    <div class="magic-moon"><i class="fas fa-star"></i></div>
+</div>
+
+<div id="spellInfo">Загрузка данных заклинания...</div>
+<div id="message"></div>
+
+<form id="castForm" class="login-form">
+    <input type="hidden" id="spellId" />
+    <label><i class="fas fa-user"></i> Выберите жертву:</label>
+    <select id="victimId" required>
+        <option value="">— Загрузка —</option>
+    </select>
+    <button type="submit">
+        <i class="fas fa-bolt"></i> Применить заклинание
+    </button>
+</form>
+
+<a href="/spells.html" class="back-link">
+    <i class="fas fa-arrow-left"></i> Вернуться к списку заклинаний
+</a>
+
+<script src="/js/api.js"></script>
+<script>
+    let currentSpell = null;
+
+    async function loadPage() {
+        try {
+            checkAuth();
+            const urlParams = new URLSearchParams(window.location.search);
+            const spellId = urlParams.get('spellId');
+            if (!spellId) throw new Error('ID заклинания не указан');
+
+            const spells = await api.getMySpells(0, 100);
+            currentSpell = spells.content.find(s => s.idSpell == spellId);
+            if (!currentSpell) throw new Error('Заклинание не найдено');
+
+            document.getElementById('spellInfo').innerHTML = `
+                <div style="background: rgba(30, 25, 50, 0.85); padding: 20px; border-radius: 12px; margin: 20px 0; border: 1px solid #5d4037;">
+                    <h3 style="color: #d4af37; margin-top: 0;">
+                        <i class="fas fa-spell-check"></i> Заклинание: ${currentSpell.spellName}
+                    </h3>
+                    <p style="color: #e0d6c5; line-height: 1.5;">
+                        <i class="fas fa-book-open"></i> ${currentSpell.spellDescription || 'Описание отсутствует'}
+                    </p>
+                </div>
+            `;
+            document.getElementById('spellId').value = spellId;
+
+            const victims = await api.getAllVictims();
+            const select = document.getElementById('victimId');
+            select.innerHTML = '<option value="">— Выберите —</option>' +
+                victims.map(v =>
+                    `<option value="${v.idHuman}">${v.humanName} ${v.humanSurname}</option>`
+                ).join('');
+        } catch (err) {
+            document.getElementById('spellInfo').innerHTML =
+                `<p class="message error">Ошибка: ${err.message}</p>`;
+        }
+    }
+
+    document.getElementById('castForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const spellId = document.getElementById('spellId').value;
+        const victimId = document.getElementById('victimId').value;
+        if (!victimId) {
+            showMessage('error', 'Пожалуйста, выберите жертву');
+            return;
+        }
+
+        try {
+            await api.castSpell(spellId, victimId);
+            showMessage('success', '✅ Заклинание успешно наложено!');
+            setTimeout(() => window.location.href = '/dashboard.html', 2000);
+        } catch (err) {
+            showMessage('error', '❌ ' + (err.message || 'Не удалось наложить заклинание'));
+        }
+    });
+
+    function showMessage(type, text) {
+        const el = document.getElementById('message');
+        el.className = `message ${type}`;
+        el.innerHTML = text;
+        el.style.display = 'block';
+    }
+
+    function logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('wizardId');
+        localStorage.removeItem('wizardLogin');
+        window.location.href = '/login.html';
+    }
+
+    loadPage();
+</script>
+</body>
+</html>
